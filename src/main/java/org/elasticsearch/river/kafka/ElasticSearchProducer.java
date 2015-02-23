@@ -15,20 +15,19 @@
  */
 package org.elasticsearch.river.kafka;
 
-import kafka.message.MessageAndMetadata;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.ObjectReader;
 import org.codehaus.jackson.type.TypeReference;
 import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
-import org.elasticsearch.common.unit.TimeValue;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Map;
-import java.util.Set;
+import java.util.Queue;
 
 /**
  * An ElasticSearch base producer, which creates an index, mapping in the EL.
@@ -36,61 +35,74 @@ import java.util.Set;
  *
  * @author Mariam Hakobyan
  */
-public abstract class ElasticSearchProducer {
+public class ElasticSearchProducer implements Runnable {
 
     private static final ESLogger logger = ESLoggerFactory.getLogger(ElasticSearchProducer.class.getName());
 
-    protected final ObjectReader reader = new ObjectMapper().reader(new TypeReference<Map<String, Object>>() {});
+    private final RiverConfig riverConfig;
 
-    private Client client;
-    protected BulkProcessor bulkProcessor;
+    private final BulkProcessor bulkProcessor;
+    private final Queue<byte[]> queue;
+    private final ObjectReader reader;
 
-    protected RiverConfig riverConfig;
+    private volatile boolean process = true;
 
-    public ElasticSearchProducer(final Client client, final RiverConfig riverConfig, final KafkaConsumer kafkaConsumer) {
-        this.client = client;
+    public ElasticSearchProducer(final RiverConfig riverConfig,
+                                 final Queue<byte[]> queue,
+                                 final BulkProcessor bulkProcessor) {
         this.riverConfig = riverConfig;
-
-        createBulkProcessor(kafkaConsumer);
+        this.queue = queue;
+        this.bulkProcessor = bulkProcessor;
+        this.reader = new ObjectMapper().reader(new TypeReference<Map<String, Object>>() {});
     }
 
-    private void createBulkProcessor(final KafkaConsumer kafkaConsumer) {
-        bulkProcessor = BulkProcessor.builder(client,
-                new BulkProcessor.Listener() {
-                    @Override
-                    public void beforeBulk(long executionId, BulkRequest request) {
-                        logger.info("Index: {}: Going to execute bulk request composed of {} actions.", riverConfig.getIndexName(), request.numberOfActions());
+    public void run() {
+        final SimpleDateFormat dateFormat = new SimpleDateFormat(riverConfig.getIndexName());
+        while (process) {
+            try {
+                byte[] message = queue.poll();
+                if (message != null) {
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("Index: {}, topic: {}: Incoming index request: {}",
+                                riverConfig.getIndexName(), riverConfig.getTopic(), new String(message, "UTF-8"));
                     }
 
-                    @Override
-                    public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-                        logger.info("Index: {}: Executed bulk composed of {} actions.", riverConfig.getIndexName(), request.numberOfActions());
-
-                        // Commit the kafka messages offset, only when messages have been successfully
-                        // inserted into ElasticSearch
-                        kafkaConsumer.getConsumerConnector().commitOffsets();
+                    final Map<String, Object> messageMap = reader.readValue(message);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("Index: {}, topic: {}: Decoded JSON: {} from message: {}",
+                                riverConfig.getIndexName(), riverConfig.getTopic(), messageMap, new String(message, "UTF-8"));
                     }
 
-                    @Override
-                    public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-                        logger.warn("Index: {}: Error executing bulk.", failure, riverConfig.getIndexName());
+                    Long timestamp = (Long) messageMap.get(riverConfig.getTimestampField());
+
+                    IndexRequest indexRequest = Requests
+                            .indexRequest(dateFormat.format(timestamp == null ? new Date() : new Date(timestamp)))
+                            .type(riverConfig.getTypeName())
+                            .source(messageMap);
+                    if (timestamp != null) {
+                        indexRequest.timestamp(String.valueOf(timestamp));
                     }
-                })
-                .setBulkActions(riverConfig.getBulkSize())
-                .setFlushInterval(TimeValue.timeValueHours(12))
-                .setConcurrentRequests(riverConfig.getConcurrentRequests())
-                .build();
+
+                    bulkProcessor.add(indexRequest);
+                    logger.trace("Index: {}, topic: {}: index request: {} submitted",
+                            riverConfig.getIndexName(), riverConfig.getTopic(), messageMap);
+
+                } else {
+                    if (!process) {
+                        break;
+                    }
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            } catch (Exception ex) {
+                logger.warn("Error parsing message", ex);
+            }
+        }
+        logger.info("Index: {}, topic: {}, process: {}: Search provider done!",
+                riverConfig.getIndexName(), riverConfig.getTopic(), process);
     }
 
-    /**
-     * For the given messages executes the specified operation type and adds the results bulk processor queue, for
-     * processing later when the size of bulk actions is reached.
-     *
-     * @param messageSet given set of messages
-     */
-    public abstract void addMessagesToBulkProcessor(final Set<MessageAndMetadata> messageSet);
-
-    public void closeBulkProcessor() {
-        bulkProcessor.close();
-    }
 }

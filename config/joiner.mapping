@@ -1,0 +1,132 @@
+{
+    "properties": {
+        "timestamp": {
+            "type": "date"
+        },
+        "auction_id_64": {
+            "type": "long"
+        },
+        "seller_member_id": {
+            "type": "integer"
+        },
+        "publisher_id": {
+            "type": "integer"
+        },
+        "user_id_64": {
+            "type": "long"
+        },
+        "eap": {
+            "type": "double"
+        },
+        "datacenter_id": {
+            "type": "integer"
+        },
+        "cookie_age": {
+            "type": "integer"
+        },
+        "highest_bid_price": {
+            "type": "double"
+        },
+        "second_highest_bid_price": {
+            "type": "double"
+        },
+        "ym_floor_id": {
+            "type": "integer"
+        },
+        "ym_bias_id": {
+            "type": "integer"
+        },
+        "ym_hard_floor": {
+            "type": "double"
+        },
+        "geo_country": {
+            "type": "string",
+            "index": "not_analyzed"
+        },
+        "tag_id": {
+            "type": "integer"
+        },
+        "user_seller_member_valuation": {
+            "properties": {
+                "com.appnexus.optimization.smart_floors.UserSellerMemberValuation": {
+                    "properties": {
+                        "using_defaults": {
+                            "properties": {
+                                "boolean": {
+                                    "type": "boolean"
+                                }
+                            }
+                        },
+                        "mean": {
+                            "type": "double"
+                        },
+                        "external_valuation": {
+                            "type": "double"
+                        },
+                        "session_frequency": {
+                            "type": "long"
+                        },
+                        "updated": {
+                            "properties": {
+                                "long": {
+                                    "type": "date"
+                                }
+                            }
+                        },
+                        "read": {
+                            "properties": {
+                                "long": {
+                                    "type": "date"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "publisher_parameters": {
+            "properties": {
+                "is_new": {
+                    "properties": {
+                        "boolean": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "using_defaults": {
+                    "type": "boolean"
+                },
+                "beta": {
+                    "type": "double"
+                },
+                "epsilon": {
+                    "type": "double"
+                },
+                "epsilon": {
+                    "type": "double"
+                },
+                "updated": {
+                    "properties": {
+                        "long": {
+                            "type": "date"
+                        }
+                    }
+                },
+                "read": {
+                    "properties": {
+                        "long": {
+                            "type": "date"
+                        }
+                    }
+                }
+            }
+        },
+        "computed_floor_value": {
+            "type": "double"
+        },
+        "timestamp_processed": {
+            "type": "date"
+        }
+    }
+}
+

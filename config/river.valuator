@@ -1,0 +1,18 @@
+{
+    "type" : "kafka",
+    "kafka" : {
+       "zookeeper.connect" : "113.bm-adserving.dev.lax1:2181", 
+       "zookeeper.connection.timeout.ms" : 10000,
+       "topic" : "log_opt_user_valuator",
+       "topic.threads" : 5
+   },
+   "index" : {
+       "index" : "'valuator-'yyyy-MM-dd-HH",
+       "type" : "valuator",
+       "timestamp.field": "timestamp_processed",
+       "bulk.size" : 1000,
+       "concurrent.requests" : 50,
+       "indexing.threads" : 5,
+       "avro.schema" : "com.appnexus.optimization.smart_floors.UserValuatorLogRecord"
+    }
+}

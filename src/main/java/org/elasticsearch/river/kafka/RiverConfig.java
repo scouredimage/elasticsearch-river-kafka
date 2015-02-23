@@ -32,25 +32,32 @@ public class RiverConfig {
     private static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
     private static final String ZOOKEEPER_CONNECTION_TIMEOUT = "zookeeper.connection.timeout.ms";
     private static final String TOPIC = "topic";
-    private static final String MESSAGE_TYPE = "message.type";
+    private static final String CONSUMER_THREADS_PER_TOPIC = "topic.threads";
 
     /* Elasticsearch config */
     private static final String INDEX_NAME = "index";
     private static final String MAPPING_TYPE = "type";
     private static final String BULK_SIZE = "bulk.size";
     private static final String CONCURRENT_REQUESTS = "concurrent.requests";
-    private static final String ACTION_TYPE = "action.type";
+    private static final String INDEXING_THREADS = "indexing.threads";
+    private static final String INDEX_QUEUE_SIZE = "index.queue.size";
 
+    /* Avro config */
+    private static final String AVRO_SCHEMA = "avro.schema";
+    private static final String TIMESTAMP_FIELD = "timestamp.field";
 
     private String zookeeperConnect;
     private int zookeeperConnectionTimeout;
     private String topic;
-    private MessageType messageType;
+    private int consumerThreadsPerTopic;
     private String indexName;
     private String typeName;
     private int bulkSize;
     private int concurrentRequests;
-    private ActionType actionType;
+    private int indexingThreads;
+    private int indexQueueSize;
+    private String avroSchema;
+    private String timestampField;
 
 
     public RiverConfig(RiverName riverName, RiverSettings riverSettings) {
@@ -62,13 +69,11 @@ public class RiverConfig {
             topic = (String) kafkaSettings.get(TOPIC);
             zookeeperConnect = XContentMapValues.nodeStringValue(kafkaSettings.get(ZOOKEEPER_CONNECT), "localhost");
             zookeeperConnectionTimeout = XContentMapValues.nodeIntegerValue(kafkaSettings.get(ZOOKEEPER_CONNECTION_TIMEOUT), 10000);
-            messageType = MessageType.fromValue(XContentMapValues.nodeStringValue(kafkaSettings.get(MESSAGE_TYPE),
-                    MessageType.JSON.toValue()));
+            consumerThreadsPerTopic = XContentMapValues.nodeIntegerValue(kafkaSettings.get(CONSUMER_THREADS_PER_TOPIC), 1);
         } else {
             zookeeperConnect = "localhost";
             zookeeperConnectionTimeout = 10000;
             topic = "elasticsearch-river-kafka";
-            messageType = MessageType.JSON;
         }
 
         // Extract ElasticSearch related configuration
@@ -78,68 +83,15 @@ public class RiverConfig {
             typeName = XContentMapValues.nodeStringValue(indexSettings.get(MAPPING_TYPE), "status");
             bulkSize = XContentMapValues.nodeIntegerValue(indexSettings.get(BULK_SIZE), 100);
             concurrentRequests = XContentMapValues.nodeIntegerValue(indexSettings.get(CONCURRENT_REQUESTS), 1);
-            actionType = ActionType.fromValue(XContentMapValues.nodeStringValue(indexSettings.get(ACTION_TYPE),
-                    ActionType.INDEX.toValue()));
+            indexingThreads = XContentMapValues.nodeIntegerValue(indexSettings.get(INDEXING_THREADS), 1);
+            indexQueueSize = XContentMapValues.nodeIntegerValue(indexSettings.get(INDEX_QUEUE_SIZE), 10000);
+            avroSchema = XContentMapValues.nodeStringValue(indexSettings.get(AVRO_SCHEMA), null);
+            timestampField = XContentMapValues.nodeStringValue(indexSettings.get(TIMESTAMP_FIELD), "timestamp");
         } else {
-            indexName = riverName.name();
+            indexName = String.format("'%s-'yyyy-MM-dd", riverName.name());
             typeName = "status";
             bulkSize = 100;
             concurrentRequests = 1;
-            actionType = ActionType.INDEX;
-        }
-    }
-
-    public enum ActionType {
-
-        INDEX("index"),
-        DELETE("delete"),
-        RAW_EXECUTE("raw.execute");
-
-        private String actionType;
-
-        private ActionType(String actionType) {
-            this.actionType = actionType;
-        }
-
-        public String toValue() {
-            return actionType;
-        }
-
-        public static ActionType fromValue(String value) {
-            if(value == null) throw new IllegalArgumentException();
-
-            for(ActionType values : values()) {
-                if(value.equalsIgnoreCase(values.toValue()))
-                    return values;
-            }
-
-            throw new IllegalArgumentException("ActionType with value " + value + " does not exist.");
-        }
-    }
-
-    public enum MessageType {
-        STRING("string"),
-        JSON("json");
-
-        private String messageType;
-
-        private MessageType(String messageType) {
-            this.messageType = messageType;
-        }
-
-        public String toValue() {
-            return messageType;
-        }
-
-        public static MessageType fromValue(String value) {
-            if(value == null) throw new IllegalArgumentException();
-
-            for(MessageType values : values()) {
-                if(value.equalsIgnoreCase(values.toValue()))
-                    return values;
-            }
-
-            throw new IllegalArgumentException("MessageType with value " + value + " does not exist.");
         }
     }
 
@@ -155,8 +107,8 @@ public class RiverConfig {
         return zookeeperConnectionTimeout;
     }
 
-    MessageType getMessageType() {
-        return messageType;
+    public int getConsumerThreadsPerTopic() {
+        return consumerThreadsPerTopic;
     }
 
     String getIndexName() {
@@ -175,7 +127,19 @@ public class RiverConfig {
         return concurrentRequests;
     }
 
-    ActionType getActionType() {
-        return actionType;
+    public int getIndexingThreads() {
+        return indexingThreads;
+    }
+
+    public int getIndexQueueSize() {
+        return indexQueueSize;
+    }
+
+    public String getAvroSchema() {
+        return avroSchema;
+    }
+
+    public String getTimestampField() {
+        return timestampField;
     }
 }

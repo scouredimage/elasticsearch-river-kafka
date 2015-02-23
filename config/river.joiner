@@ -1,0 +1,18 @@
+{
+    "type" : "kafka",
+    "kafka" : {
+       "zookeeper.connect" : "113.bm-adserving.dev.lax1:2181", 
+       "zookeeper.connection.timeout.ms" : 10000,
+       "topic" : "log_opt_joiner_matched",
+       "topic.threads" : 4
+   },
+   "index" : {
+       "index" : "'joiner-'yyyy-MM-dd-HH",
+       "type" : "joiner",
+       "timestamp.field": "timestamp_processed",
+       "bulk.size" : 25000,
+       "concurrent.requests" : 200,
+       "indexing.threads" : 20,
+       "avro.schema" : "com.appnexus.optimization.smart_floors.LandscapeRTPPJoinedLogRecord"
+    }
+}
