@@ -4,15 +4,20 @@
        "zookeeper.connect" : "113.bm-adserving.dev.lax1:2181", 
        "zookeeper.connection.timeout.ms" : 10000,
        "topic" : "log_opt_joiner_matched",
-       "topic.threads" : 4
+       "topic.threads" : 100
    },
    "index" : {
        "index" : "'joiner-'yyyy-MM-dd-HH",
        "type" : "joiner",
        "timestamp.field": "timestamp_processed",
-       "bulk.size" : 25000,
+       "bulk.size" : 1000,
        "concurrent.requests" : 200,
-       "indexing.threads" : 20,
+       "indexing.threads" : 50,
+       "index.queue.size": 2000000,
        "avro.schema" : "com.appnexus.optimization.smart_floors.LandscapeRTPPJoinedLogRecord"
+    },
+    "sampling" : {
+       "percent" : 10,
+       "fields" : [ "user_id_64" ]
     }
 }

@@ -19,6 +19,8 @@ import org.elasticsearch.common.xcontent.support.XContentMapValues;
 import org.elasticsearch.river.RiverName;
 import org.elasticsearch.river.RiverSettings;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -46,6 +48,10 @@ public class RiverConfig {
     private static final String AVRO_SCHEMA = "avro.schema";
     private static final String TIMESTAMP_FIELD = "timestamp.field";
 
+    /* Sampling */
+    private static final String SAMPLE_PERCENT = "percent";
+    private static final String SAMPLE_FIELDS = "fields";
+
     private String zookeeperConnect;
     private int zookeeperConnectionTimeout;
     private String topic;
@@ -58,6 +64,10 @@ public class RiverConfig {
     private int indexQueueSize;
     private String avroSchema;
     private String timestampField;
+
+    private boolean sampled = false;
+    private int samplePercent;
+    private List<String> sampleFields;
 
 
     public RiverConfig(RiverName riverName, RiverSettings riverSettings) {
@@ -92,6 +102,20 @@ public class RiverConfig {
             typeName = "status";
             bulkSize = 100;
             concurrentRequests = 1;
+        }
+
+        if (riverSettings.settings().containsKey("sampled")) {
+            Map<String, Object> sampleSettings = (Map<String, Object>) riverSettings.settings().get("sampled");
+            samplePercent = XContentMapValues.nodeIntegerValue(sampleSettings.get(SAMPLE_PERCENT), 10);
+            List<Object> fields = (List) sampleSettings.get(SAMPLE_FIELDS);
+            sampleFields = new ArrayList<String>(fields.size());
+            for (Object field : fields) {
+                sampleFields.add(field.toString());
+            }
+            if (sampleFields.size() < 1) {
+                throw new RuntimeException("Configuration error! Must specify fields to use when sampled.");
+            }
+            sampled = true;
         }
     }
 
@@ -141,5 +165,17 @@ public class RiverConfig {
 
     public String getTimestampField() {
         return timestampField;
+    }
+
+    public boolean isSampled() {
+        return sampled;
+    }
+
+    public int getSamplePercent() {
+        return samplePercent;
+    }
+
+    public List<String> getSampleFields() {
+        return sampleFields;
     }
 }

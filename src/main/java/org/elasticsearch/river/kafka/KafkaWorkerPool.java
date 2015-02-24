@@ -28,7 +28,6 @@ import org.elasticsearch.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
@@ -48,15 +47,19 @@ public class KafkaWorkerPool {
     private final EncoderFactory encoderFactory;
     private final GenericDatumWriter<Object> datumWriter;
 
+    private final Filter filter;
+
     private static final ESLogger logger = ESLoggerFactory.getLogger(KafkaWorkerPool.class.getName());
 
 
     public KafkaWorkerPool(final KafkaConsumer kafkaConsumer,
                            final RiverConfig riverConfig,
-                           final Queue<byte[]> queue) {
+                           final Queue<byte[]> queue,
+                           final Filter filter) {
         this.kafkaConsumer = kafkaConsumer;
         this.riverConfig = riverConfig;
         this.queue = queue;
+        this.filter = filter;
 
         this.encoderFactory = EncoderFactory.get();
         datumWriter = new GenericDatumWriter<Object>(this.kafkaConsumer.getSchema());
@@ -103,9 +106,16 @@ public class KafkaWorkerPool {
             if (!consume) {
                 break;
             }
+
             final MessageAndMetadata<String, IndexedRecord> messageAndMetadata = consumerIterator.next();
-            if (logger.isTraceEnabled()) {
-                logMessage(messageAndMetadata);
+            if (messageAndMetadata == null) {
+                continue;
+            }
+            logger.trace("Index: {}, topic: {}: Incoming message: {}",
+                    riverConfig.getIndexName(), riverConfig.getTopic(), messageAndMetadata.message());
+            if (filter != null && filter.filtered(messageAndMetadata)) {
+                logger.debug("Index: {}, topic: {}: Message filtered: {}",
+                        riverConfig.getIndexName(), riverConfig.getTopic(), messageAndMetadata.message());
             }
 
             byte[] json;
@@ -135,18 +145,6 @@ public class KafkaWorkerPool {
 
         }
         logger.info("Index: {}, consume={}: Kafka consumer done!", riverConfig.getIndexName(), consume);
-    }
-
-    /**
-     * Logs consumed kafka messages to the log.
-     */
-    private void logMessage(final MessageAndMetadata messageAndMetadata) {
-        final byte[] messageBytes = (byte[]) messageAndMetadata.message();
-        try {
-            logger.trace("Index: {}: Message received: {}", riverConfig.getIndexName(), new String(messageBytes, "UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-            logger.trace("The UTF-8 charset is not supported for the kafka message.");
-        }
     }
 
     void stop() {

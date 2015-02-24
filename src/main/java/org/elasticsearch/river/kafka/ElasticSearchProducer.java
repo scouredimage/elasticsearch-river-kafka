@@ -19,10 +19,14 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.ObjectReader;
 import org.codehaus.jackson.type.TypeReference;
 import org.elasticsearch.action.bulk.BulkProcessor;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.unit.ByteSizeValue;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -45,20 +49,47 @@ public class ElasticSearchProducer implements Runnable {
     private final Queue<byte[]> queue;
     private final ObjectReader reader;
 
-    private volatile boolean process = true;
+    public static volatile boolean PROCESS = true;
 
     public ElasticSearchProducer(final RiverConfig riverConfig,
                                  final Queue<byte[]> queue,
-                                 final BulkProcessor bulkProcessor) {
+                                 final Client client) {
         this.riverConfig = riverConfig;
         this.queue = queue;
-        this.bulkProcessor = bulkProcessor;
+        this.bulkProcessor = createBulkProcessor(client);
         this.reader = new ObjectMapper().reader(new TypeReference<Map<String, Object>>() {});
+    }
+
+    private BulkProcessor createBulkProcessor(final Client client) {
+        return BulkProcessor.builder(
+                client,
+                new BulkProcessor.Listener() {
+                    @Override
+                    public void beforeBulk(long executionId, BulkRequest request) {
+                        logger.debug("Index: {}: Going to execute bulk request composed of {} actions.",
+                                riverConfig.getIndexName(), request.numberOfActions());
+                    }
+
+                    @Override
+                    public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+                        logger.info("Index: {}: Executed bulk composed of {} actions.",
+                                riverConfig.getIndexName(), request.numberOfActions());
+                    }
+
+                    @Override
+                    public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+                        logger.warn("Index: {}: Error executing bulk.", failure, riverConfig.getIndexName());
+                    }
+                })
+                .setBulkActions(riverConfig.getBulkSize())
+                .setBulkSize(new ByteSizeValue(-1L))
+                .setConcurrentRequests(riverConfig.getConcurrentRequests())
+                .build();
     }
 
     public void run() {
         final SimpleDateFormat dateFormat = new SimpleDateFormat(riverConfig.getIndexName());
-        while (process) {
+        while (PROCESS) {
             try {
                 byte[] message = queue.poll();
                 if (message != null) {
@@ -88,7 +119,7 @@ public class ElasticSearchProducer implements Runnable {
                             riverConfig.getIndexName(), riverConfig.getTopic(), messageMap);
 
                 } else {
-                    if (!process) {
+                    if (!PROCESS) {
                         break;
                     }
                     try {
@@ -101,8 +132,8 @@ public class ElasticSearchProducer implements Runnable {
                 logger.warn("Error parsing message", ex);
             }
         }
-        logger.info("Index: {}, topic: {}, process: {}: Search provider done!",
-                riverConfig.getIndexName(), riverConfig.getTopic(), process);
+        logger.info("Index: {}, topic: {}, PROCESS: {}: Search provider done!",
+                riverConfig.getIndexName(), riverConfig.getTopic(), PROCESS);
     }
 
 }

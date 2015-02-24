@@ -15,12 +15,8 @@
  */
 package org.elasticsearch.river.kafka;
 
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.util.concurrent.ThreadFactoryBuilder;
 import org.elasticsearch.river.AbstractRiverComponent;
 import org.elasticsearch.river.River;
@@ -44,7 +40,7 @@ public class KafkaRiver extends AbstractRiverComponent implements River {
 
     private KafkaWorkerPool kafkaWorkerPool;
 
-    private final BulkProcessor bulkProcessor;
+    private final Client client;
     private ExecutorService providerService;
 
     @Inject
@@ -54,50 +50,25 @@ public class KafkaRiver extends AbstractRiverComponent implements River {
         riverConfig = new RiverConfig(riverName, riverSettings);
         kafkaConsumer = new KafkaConsumer(riverConfig);
         queue = new ArrayBlockingQueue<byte[]>(riverConfig.getIndexQueueSize());
-        bulkProcessor = createBulkProcessor(client);
-    }
-
-    private BulkProcessor createBulkProcessor(final Client client) {
-        return BulkProcessor.builder(
-                client,
-                new BulkProcessor.Listener() {
-                    @Override
-                    public void beforeBulk(long executionId, BulkRequest request) {
-                        logger.debug("Index: {}: Going to execute bulk request composed of {} actions.",
-                                riverConfig.getIndexName(), request.numberOfActions());
-                    }
-
-                    @Override
-                    public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-                        logger.info("Index: {}: Executed bulk composed of {} actions.",
-                                riverConfig.getIndexName(), request.numberOfActions());
-                    }
-
-                    @Override
-                    public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-                        logger.warn("Index: {}: Error executing bulk.", failure, riverConfig.getIndexName());
-                    }
-                })
-                .setBulkActions(riverConfig.getBulkSize())
-                .setBulkSize(new ByteSizeValue(-1L))
-                .setConcurrentRequests(riverConfig.getConcurrentRequests())
-                .build();
+        this.client = client;
     }
 
     @Override
     public void start() {
-
         try {
             logger.debug("Index: {}: Starting Kafka River...", riverConfig.getIndexName());
 
-            kafkaWorkerPool = new KafkaWorkerPool(kafkaConsumer, riverConfig, queue);
+            final Filter filter = riverConfig.isSampled()
+                    ? new SamplingFilter(riverConfig.getSamplePercent(), riverConfig.getSampleFields())
+                    : null;
+            kafkaWorkerPool = new KafkaWorkerPool(kafkaConsumer, riverConfig, queue, filter);
             kafkaWorkerPool.start();
 
             providerService = Executors.newFixedThreadPool(
                     riverConfig.getIndexingThreads(),
                     new ThreadFactoryBuilder().setNameFormat("kafka-river-indexer-%d").build());
             for (int i = 0; i < riverConfig.getIndexingThreads(); i++) {
-                providerService.submit(new ElasticSearchProducer(riverConfig, queue, bulkProcessor));
+                providerService.submit(new ElasticSearchProducer(riverConfig, queue, client));
             }
         } catch (Exception ex) {
             logger.error("Index: {}: Unexpected Error occurred", ex, riverConfig.getIndexName());
@@ -108,9 +79,9 @@ public class KafkaRiver extends AbstractRiverComponent implements River {
     @Override
     public void close() {
         logger.debug("Index: {}: Closing kafka river...", riverConfig.getIndexName());
-        bulkProcessor.close();
         kafkaConsumer.shutdown();
         kafkaWorkerPool.stop();
+        ElasticSearchProducer.PROCESS = false;
         stopProcessorService();
     }
 
