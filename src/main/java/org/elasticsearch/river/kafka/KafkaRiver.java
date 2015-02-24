@@ -36,7 +36,7 @@ public class KafkaRiver extends AbstractRiverComponent implements River {
 
     private KafkaConsumer kafkaConsumer;
     private RiverConfig riverConfig;
-    final Queue<byte[]> queue;
+    final Queue<String> queue;
 
     private KafkaWorkerPool kafkaWorkerPool;
 
@@ -49,7 +49,7 @@ public class KafkaRiver extends AbstractRiverComponent implements River {
 
         riverConfig = new RiverConfig(riverName, riverSettings);
         kafkaConsumer = new KafkaConsumer(riverConfig);
-        queue = new ArrayBlockingQueue<byte[]>(riverConfig.getIndexQueueSize());
+        queue = new ArrayBlockingQueue<String>(riverConfig.getIndexQueueSize());
         this.client = client;
     }
 

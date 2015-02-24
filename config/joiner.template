@@ -54,50 +54,30 @@
                 },
                 "user_seller_member_valuation": {
                     "properties": {
-                        "com.appnexus.optimization.smart_floors.UserSellerMemberValuation": {
-                            "properties": {
-                                "using_defaults": {
-                                    "properties": {
-                                        "boolean": {
-                                            "type": "boolean"
-                                        }
-                                    }
-                                },
-                                "mean": {
-                                    "type": "double"
-                                },
-                                "external_valuation": {
-                                    "type": "double"
-                                },
-                                "session_frequency": {
-                                    "type": "long"
-                                },
-                                "updated": {
-                                    "properties": {
-                                        "long": {
-                                            "type": "date"
-                                        }
-                                    }
-                                },
-                                "read": {
-                                    "properties": {
-                                        "long": {
-                                            "type": "date"
-                                        }
-                                    }
-                                }
-                            }
+                        "using_defaults": {
+                            "type": "boolean"
+                        },
+                        "mean": {
+                            "type": "double"
+                        },
+                        "external_valuation": {
+                            "type": "double"
+                        },
+                        "session_frequency": {
+                            "type": "long"
+                        },
+                        "updated": {
+                            "type": "date"
+                        },
+                        "read": {
+                            "type": "date"
                         }
                     }
                 },
                 "publisher_parameters": {
                     "properties": {
                         "is_new": {
-                            "properties": {
-                                "boolean": {
-                                    "type": "boolean"
-                                }
-                            }
+                            "type": "boolean"
                         },
                         "using_defaults": {
                             "type": "boolean"
@@ -112,18 +92,10 @@
                             "type": "double"
                         },
                         "updated": {
-                            "properties": {
-                                "long": {
-                                    "type": "date"
-                                }
-                            }
+                            "type": "date"
                         },
                         "read": {
-                            "properties": {
-                                "long": {
-                                    "type": "date"
-                                }
-                            }
+                            "type": "date"
                         }
                     }
                 },

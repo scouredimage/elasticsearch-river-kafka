@@ -18,16 +18,11 @@ package org.elasticsearch.river.kafka;
 import kafka.consumer.ConsumerIterator;
 import kafka.consumer.KafkaStream;
 import kafka.message.MessageAndMetadata;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.util.concurrent.ThreadFactoryBuilder;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
@@ -39,13 +34,10 @@ public class KafkaWorkerPool {
 
     private KafkaConsumer kafkaConsumer;
     private RiverConfig riverConfig;
-    final Queue<byte[]> queue;
+    final Queue<String> queue;
 
     private volatile boolean consume = false;
     private ExecutorService executor;
-
-    private final EncoderFactory encoderFactory;
-    private final GenericDatumWriter<Object> datumWriter;
 
     private final Filter filter;
 
@@ -54,15 +46,12 @@ public class KafkaWorkerPool {
 
     public KafkaWorkerPool(final KafkaConsumer kafkaConsumer,
                            final RiverConfig riverConfig,
-                           final Queue<byte[]> queue,
+                           final Queue<String> queue,
                            final Filter filter) {
         this.kafkaConsumer = kafkaConsumer;
         this.riverConfig = riverConfig;
         this.queue = queue;
         this.filter = filter;
-
-        this.encoderFactory = EncoderFactory.get();
-        datumWriter = new GenericDatumWriter<Object>(this.kafkaConsumer.getSchema());
     }
 
     public void start() {
@@ -118,21 +107,7 @@ public class KafkaWorkerPool {
                         riverConfig.getIndexName(), riverConfig.getTopic(), messageAndMetadata.message());
             }
 
-            byte[] json;
-            try {
-                ByteArrayOutputStream os = new ByteArrayOutputStream(64);
-                JsonEncoder encoder = encoderFactory.jsonEncoder(kafkaConsumer.getSchema(), os);
-
-                datumWriter.write(messageAndMetadata.message(), encoder);
-                encoder.flush();
-
-                json = os.toByteArray();
-            } catch (IOException e) {
-                logger.warn("Index: {}, topic: {}: Error encoding to JSON", e, riverConfig.getIndexName(), riverConfig.getTopic());
-                continue;
-            }
-
-            while (!queue.offer(json)) {
+            while (!queue.offer(messageAndMetadata.message().toString())) {
                 if (!consume) {
                     break;
                 }

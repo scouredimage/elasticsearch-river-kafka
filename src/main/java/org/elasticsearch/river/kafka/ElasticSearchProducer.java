@@ -46,13 +46,13 @@ public class ElasticSearchProducer implements Runnable {
     private final RiverConfig riverConfig;
 
     private final BulkProcessor bulkProcessor;
-    private final Queue<byte[]> queue;
+    private final Queue<String> queue;
     private final ObjectReader reader;
 
     public static volatile boolean PROCESS = true;
 
     public ElasticSearchProducer(final RiverConfig riverConfig,
-                                 final Queue<byte[]> queue,
+                                 final Queue<String> queue,
                                  final Client client) {
         this.riverConfig = riverConfig;
         this.queue = queue;
@@ -91,18 +91,14 @@ public class ElasticSearchProducer implements Runnable {
         final SimpleDateFormat dateFormat = new SimpleDateFormat(riverConfig.getIndexName());
         while (PROCESS) {
             try {
-                byte[] message = queue.poll();
-                if (message != null) {
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("Index: {}, topic: {}: Incoming index request: {}",
-                                riverConfig.getIndexName(), riverConfig.getTopic(), new String(message, "UTF-8"));
-                    }
+                String json = queue.poll();
+                if (json != null) {
+                    logger.trace("Index: {}, topic: {}: Incoming index request: {}",
+                            riverConfig.getIndexName(), riverConfig.getTopic(), json);
 
-                    final Map<String, Object> messageMap = reader.readValue(message);
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("Index: {}, topic: {}: Decoded JSON: {} from message: {}",
-                                riverConfig.getIndexName(), riverConfig.getTopic(), messageMap, new String(message, "UTF-8"));
-                    }
+                    final Map<String, Object> messageMap = reader.readValue(json);
+                    logger.trace("Index: {}, topic: {}: Decoded JSON: {} from message: {}",
+                            riverConfig.getIndexName(), riverConfig.getTopic(), messageMap, json);
 
                     Long timestamp = (Long) messageMap.get(riverConfig.getTimestampField());
 
