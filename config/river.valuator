@@ -13,7 +13,7 @@
        "bulk.size" : 1000,
        "concurrent.requests" : 100,
        "indexing.threads" : 20,
-       "index.queue.size": 1000000,
+       "index.queue.size": 2000000,
        "avro.schema" : "com.appnexus.optimization.smart_floors.UserValuatorLogRecord"
     },
     "sampling" : {

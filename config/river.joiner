@@ -11,9 +11,9 @@
        "type" : "joiner",
        "timestamp.field": "timestamp_processed",
        "bulk.size" : 1000,
-       "concurrent.requests" : 200,
-       "indexing.threads" : 50,
-       "index.queue.size": 2000000,
+       "concurrent.requests" : 100,
+       "indexing.threads" : 100,
+       "index.queue.size": 5000000,
        "avro.schema" : "com.appnexus.optimization.smart_floors.LandscapeRTPPJoinedLogRecord"
     },
     "sampling" : {
