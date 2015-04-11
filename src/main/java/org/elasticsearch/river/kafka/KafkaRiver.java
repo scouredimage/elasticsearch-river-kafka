@@ -60,7 +60,9 @@ public class KafkaRiver extends AbstractRiverComponent implements River {
 
             final Filter filter = riverConfig.isSampled()
                     ? new SamplingFilter(riverConfig.getSamplePercent(), riverConfig.getSampleFields())
-                    : null;
+                    : (riverConfig.isFiltered()
+                        ? new MatchFilter(riverConfig.getFilterField(), riverConfig.getFilterValues())
+                        : null);
             kafkaWorkerPool = new KafkaWorkerPool(kafkaConsumer, riverConfig, queue, filter);
             kafkaWorkerPool.start();
 

@@ -1,0 +1,23 @@
+{
+    "type": "kafka",
+    "kafka": {
+       "zookeeper.connect": "01.bm-kafka.prod.sin1:2181,02.bm-kafka.prod.sin1:2181,03.bm-kafka.prod.sin1:2181,04.bm-kafka.prod.sin1:2181",
+       "zookeeper.connection.timeout.ms": 10000,
+       "topic": "sin1.opt_rtpp_log.1.proto",
+       "topic.threads": 100
+   },
+   "index": {
+       "index": "'sin1-rtpp-'yyyy-MM-dd-HH",
+       "type": "rtpp",
+       "timestamp.field": "timestamp",
+       "bulk.size": 1000,
+       "concurrent.requests": 100,
+       "indexing.threads": 100,
+       "index.queue.size": 100000,
+       "proto.schema": "com.appnexus.OptRtppLogRecordMessage$OptRtppLogRecord"
+    },
+    "filter": {
+       "field": "publisher_id",
+       "values": [513076, 117826, 247380]
+    }
+}

@@ -1,10 +1,11 @@
 package org.elasticsearch.river.kafka;
 
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.GeneratedMessage;
 import kafka.message.MessageAndMetadata;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.IndexedRecord;
 
 import java.util.List;
+import java.util.Map;
 
 public class SamplingFilter implements Filter {
     private final int percent;
@@ -16,15 +17,17 @@ public class SamplingFilter implements Filter {
     }
 
     @Override
-    public boolean filtered(MessageAndMetadata<String, IndexedRecord> messageAndMetadata) {
-        final IndexedRecord record = messageAndMetadata.message();
-        final Schema schema = messageAndMetadata.message().getSchema();
+    public boolean filtered(MessageAndMetadata<String, GeneratedMessage> messageAndMetadata) {
+        final GeneratedMessage message = messageAndMetadata.message();
         int hashcode = 0;
         for (String field : fields) {
-            Object value = record.get(schema.getField(field).pos());
-            hashcode = hashcode * 31 + ((Number) value).intValue();
+            for (Map.Entry<Descriptors.FieldDescriptor, Object> entry : message.getAllFields().entrySet()) {
+                if (field.equals(entry.getKey().getName())) {
+                    hashcode = hashcode * 31 + ((Number) entry.getValue()).intValue();
+                }
+            }
         }
-        return hashcode % (100 / percent) == 0;
+        return hashcode % (100 / percent) != 0;
     }
 
 }

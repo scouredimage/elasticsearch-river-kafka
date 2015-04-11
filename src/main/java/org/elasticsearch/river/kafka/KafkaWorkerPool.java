@@ -15,10 +15,11 @@
  */
 package org.elasticsearch.river.kafka;
 
+import com.google.protobuf.GeneratedMessage;
+import com.googlecode.protobuf.format.JsonFormat;
 import kafka.consumer.ConsumerIterator;
 import kafka.consumer.KafkaStream;
 import kafka.message.MessageAndMetadata;
-import org.apache.avro.generic.IndexedRecord;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.util.concurrent.ThreadFactoryBuilder;
@@ -66,11 +67,11 @@ public class KafkaWorkerPool {
         consume = true;
         logger.debug("Index: {}: Kafka consumer started...", riverConfig.getIndexName());
 
-        List<KafkaStream<String, IndexedRecord>> streams = kafkaConsumer.getStreams();
+        List<KafkaStream<String, GeneratedMessage>> streams = kafkaConsumer.getStreams();
         executor = Executors.newFixedThreadPool(
                 riverConfig.getConsumerThreadsPerTopic(),
                 new ThreadFactoryBuilder().setNameFormat("kafka-river-consumer-%d").build());
-        for (final KafkaStream<String, IndexedRecord> stream : streams) {
+        for (final KafkaStream<String, GeneratedMessage> stream : streams) {
             executor.submit(
                     new Runnable() {
                         @Override
@@ -86,9 +87,9 @@ public class KafkaWorkerPool {
     /**
      * Consumes the messages from the partition via specified stream.
      */
-    private void consumeMessagesAndAddToQueue(final KafkaStream<String, IndexedRecord> stream) {
+    private void consumeMessagesAndAddToQueue(final KafkaStream<String, GeneratedMessage> stream) {
         logger.debug("Index: {}: Consuming from topic: {}", riverConfig.getIndexName(), riverConfig.getTopic());
-        final ConsumerIterator<String, IndexedRecord> consumerIterator = stream.iterator();
+        final ConsumerIterator<String, GeneratedMessage> consumerIterator = stream.iterator();
 
         // Consume all the messages of the stream (partition)
         while (consumerIterator.hasNext()) {
@@ -96,7 +97,7 @@ public class KafkaWorkerPool {
                 break;
             }
 
-            final MessageAndMetadata<String, IndexedRecord> messageAndMetadata = consumerIterator.next();
+            final MessageAndMetadata<String, GeneratedMessage> messageAndMetadata = consumerIterator.next();
             if (messageAndMetadata == null) {
                 continue;
             }
@@ -106,18 +107,18 @@ public class KafkaWorkerPool {
                 logger.debug("Index: {}, topic: {}: Message filtered: {}",
                         riverConfig.getIndexName(), riverConfig.getTopic(), messageAndMetadata.message());
             }
-
-            while (!queue.offer(messageAndMetadata.message().toString())) {
-                if (!consume) {
-                    break;
-                }
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
+            else {
+                while (!queue.offer(JsonFormat.printToString(messageAndMetadata.message()))) {
+                    if (!consume) {
+                        break;
+                    }
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
             }
-
         }
         logger.info("Index: {}, consume={}: Kafka consumer done!", riverConfig.getIndexName(), consume);
     }

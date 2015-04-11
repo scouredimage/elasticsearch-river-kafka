@@ -45,12 +45,16 @@ public class RiverConfig {
     private static final String INDEX_QUEUE_SIZE = "index.queue.size";
 
     /* Avro config */
-    private static final String AVRO_SCHEMA = "avro.schema";
+    private static final String PROTO_SCHEMA = "proto.schema";
     private static final String TIMESTAMP_FIELD = "timestamp.field";
 
     /* Sampling */
     private static final String SAMPLE_PERCENT = "percent";
     private static final String SAMPLE_FIELDS = "fields";
+
+    /* Filtering */
+    private static final String FILTER_FIELD = "field";
+    private static final String FILTER_VALUES = "values";
 
     private String zookeeperConnect;
     private int zookeeperConnectionTimeout;
@@ -62,13 +66,16 @@ public class RiverConfig {
     private int concurrentRequests;
     private int indexingThreads;
     private int indexQueueSize;
-    private String avroSchema;
+    private String protoSchema;
     private String timestampField;
 
     private boolean sampled = false;
     private int samplePercent;
     private List<String> sampleFields;
 
+    private boolean filtered = false;
+    private String filterField;
+    private List<Object> filterValues;
 
     public RiverConfig(RiverName riverName, RiverSettings riverSettings) {
 
@@ -95,7 +102,7 @@ public class RiverConfig {
             concurrentRequests = XContentMapValues.nodeIntegerValue(indexSettings.get(CONCURRENT_REQUESTS), 1);
             indexingThreads = XContentMapValues.nodeIntegerValue(indexSettings.get(INDEXING_THREADS), 1);
             indexQueueSize = XContentMapValues.nodeIntegerValue(indexSettings.get(INDEX_QUEUE_SIZE), 10000);
-            avroSchema = XContentMapValues.nodeStringValue(indexSettings.get(AVRO_SCHEMA), null);
+            protoSchema = XContentMapValues.nodeStringValue(indexSettings.get(PROTO_SCHEMA), null);
             timestampField = XContentMapValues.nodeStringValue(indexSettings.get(TIMESTAMP_FIELD), "timestamp");
         } else {
             indexName = String.format("'%s-'yyyy-MM-dd", riverName.name());
@@ -116,6 +123,14 @@ public class RiverConfig {
                 throw new RuntimeException("Configuration error! Must specify fields to use when sampled.");
             }
             sampled = true;
+        } else if (riverSettings.settings().containsKey("filter")) {
+            Map<String, Object> filterSettings = (Map<String, Object>) riverSettings.settings().get("filter");
+            filterField = XContentMapValues.nodeStringValue(filterSettings.get(FILTER_FIELD), null);
+            filterValues = (List) filterSettings.get(FILTER_VALUES);
+            if (filterField == null || (filterValues == null || filterValues.isEmpty())) {
+                throw new RuntimeException("Configuration error! Must specify filter field and match values.");
+            }
+            filtered = true;
         }
     }
 
@@ -159,8 +174,8 @@ public class RiverConfig {
         return indexQueueSize;
     }
 
-    public String getAvroSchema() {
-        return avroSchema;
+    public String getProtoSchema() {
+        return protoSchema;
     }
 
     public String getTimestampField() {
@@ -177,5 +192,17 @@ public class RiverConfig {
 
     public List<String> getSampleFields() {
         return sampleFields;
+    }
+
+    public boolean isFiltered() {
+        return filtered;
+    }
+
+    public String getFilterField() {
+        return filterField;
+    }
+
+    public List<Object> getFilterValues() {
+        return filterValues;
     }
 }
